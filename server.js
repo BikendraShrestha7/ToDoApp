@@ -1,85 +1,95 @@
-// server.js
-const express = require("express");
-const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
+const express = require('express');
+const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
 const app = express();
-const PORT = process.env.PORT || 3004;
+const port = process.env.PORT || 3000;
 
-// Initialize SQLite database
-const db = new sqlite3.Database("./.data/todos.db", (err) => {
+// Initialize database
+const db = new sqlite3.Database('todos.db', (err) => {
   if (err) {
-    console.error("Error opening database:", err.message);
+    console.error('Database connection error:', err);
   } else {
-    console.log("Connected to the SQLite database.");
+    console.log('Connected to SQLite database');
+    db.run(`CREATE TABLE IF NOT EXISTS todos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      priority TEXT DEFAULT 'low',
+      isComplete INTEGER DEFAULT 0,
+      isFun INTEGER
+    )`);
   }
 });
 
-// Create todos table if it doesn't exist
-db.run(`CREATE TABLE IF NOT EXISTS todos (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  priority TEXT DEFAULT 'low',
-  isComplete BOOLEAN DEFAULT 0,
-  isFun BOOLEAN DEFAULT 1
-)`);
-
+// Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static('public'));
 
-// GET /todos - Retrieve all todos
-app.get("/todos", (req, res) => {
-  db.all("SELECT * FROM todos", [], (err, rows) => {
+// Routes
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// GET all todos
+app.get('/todos', (req, res) => {
+  db.all('SELECT * FROM todos', (err, rows) => {
     if (err) {
-      res.status(500).json({ error: err.message });
-    } else {
-      // Mapping the data to match the required format
-      const todos = rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        priority: row.priority,
-        isComplete: Boolean(row.isComplete),
-        isFun: Boolean(row.isFun),
-      }));
-      res.json(todos);
+      return res.status(500).json({ message: err.message });
     }
+    const todos = rows.map(row => ({
+      ...row,
+      isComplete: Boolean(row.isComplete),
+      isFun: Boolean(row.isFun)
+    }));
+    res.json(todos);
   });
 });
 
-// POST /todos - Add a new todo
-app.post("/todos", (req, res) => {
-  const { name, priority = "low", isFun = true } = req.body;
-  const stmt = db.prepare(
-    "INSERT INTO todos (name, priority, isFun) VALUES (?, ?, ?)"
-  );
-  stmt.run(name, priority, isFun, function (err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-    } else {
+// POST new todo
+app.post('/todos', (req, res) => {
+  const { name, priority = 'low', isFun = true } = req.body;
+  
+  if (!name) {
+    return res.status(400).json({ message: 'Name is required' });
+  }
+
+  db.run(
+    'INSERT INTO todos (name, priority, isFun) VALUES (?, ?, ?)',
+    [name, priority, isFun ? 1 : 0],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ message: err.message });
+      }
       res.status(201).json({
         id: this.lastID,
         name,
         priority,
         isComplete: false,
-        isFun,
+        isFun
       });
     }
-  });
+  );
 });
 
-// DELETE /todos/:id - Delete a todo by ID
-app.delete("/todos/:id", (req, res) => {
-  const stmt = db.prepare("DELETE FROM todos WHERE id = ?");
-  stmt.run(req.params.id, function (err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-    } else if (this.changes === 0) {
-      res.status(404).json({ error: "Todo not found" });
-    } else {
-      res.status(200).json({ message: "Todo deleted" });
+// DELETE todo
+app.delete('/todos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  
+  db.run(
+    'DELETE FROM todos WHERE id = ?',
+    [id],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ message: err.message });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ message: 'Todo item not found' });
+      }
+      res.json({ message: `Todo item ${id} deleted.` });
     }
-  });
+  );
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+// Start server
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
