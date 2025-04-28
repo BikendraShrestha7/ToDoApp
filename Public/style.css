@@ -1,0 +1,39 @@
+/* Basic styling */
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  margin: 20px;
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.block {
+  margin: 10px 0;
+}
+
+input,
+button {
+  padding: 10px;
+  margin: 5px;
+  font-size: 16px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #ddd;
+}
+
+pre {
+  text-align: left;
+  background-color: #f4f4f4;
+  padding: 10px;
+  border-radius: 5px;
+  max-height: 300px;
+  overflow-y: auto;
+}
